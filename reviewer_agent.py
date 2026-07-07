@@ -4,7 +4,7 @@ from pathlib import Path
 from langchain.agents import create_agent
 
 # ── API key ──────────────────────────────────────────────────────────────────
-os.environ["OPENROUTER_API_KEY"] = "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"
+os.environ["OPENROUTER_API_KEY"] = ""
 
 # ── Model ────────────────────────────────────────────────────────────────────
 MODEL = "openrouter:openrouter/free"
