@@ -1,88 +1,52 @@
 import os
 from langchain.agents import create_agent
+from langchain.tools import tool
 
-# ── API Key ───────────────────────────────────────────────────────────────────
-os.environ["OPENROUTER_API_KEY"] = ""
+codebase = "codebase"
 
-# ── Model ─────────────────────────────────────────────────────────────────────
-MODEL = "openrouter:openrouter/free"
+# ===================================== Langchain Tools =====================================
+@tool
+def make_directory(dir_path: str):  
+    """Use this tool to create a new folder. It takes only one parameter 'dir_path' which is the path of the directory to be created
+    """
+    try:
+        os.makedirs(f"{codebase}/{dir_path}", exist_ok=True)
+    except Exception as e:
+        return f"Failed to create directory {dir_path}. Error: {str(e)}"
 
-# ── Agent ─────────────────────────────────────────────────────────────────────
-agent = create_agent(
-    model=MODEL,
-    tools=[],
-    system_prompt="""You are a senior frontend project planner specializing in React applications.
+@tool  
+def make_file(file_path: str):  
+    """Use this tool to create a new file. It takes only one parameter 'file_path' which is the address of the file to be created"""
+    try:
+        full_path = f"{codebase}/{file_path}"
+        os.makedirs(os.path.dirname(full_path), exist_ok=True)
+        with open(full_path, "w", encoding="utf-8") as f:
+            f.write("")
+    except Exception as e:
+        return f"Failed to create file {file_path}. Error: {str(e)}"
+      
 
-When given a natural language description of a web application, you must produce a complete, structured project plan.
+# ========================================== Agent ==========================================
+planner_agent = create_agent(
+    model = "google_genai:gemini-2.5-flash-lite",
+    system_prompt =
+    """
+    You are an expert Software Architect Agent specialising in React applications. When given a natural language description of a web application, your sole task is to generate complete, empty directory and file structures based on user requirements.
 
-Your output must always follow this exact format:
+    You have access to two tools:
+    1. `make_directory(dir_path)` - Creates a folder at the specified path.
+    2. `make_file(file_path)` - Creates a completely empty file at the specified path.
 
-## Project Plan
+    ### CRITICAL EXECUTION RULES:
+    1. **Order of Operations (Crucial)**: You must always call `make_directory` for a folder BEFORE attempting to create any empty files inside it via `make_file`. If you try to create a file inside a folder that doesn't exist yet, the system will error out.
+    2. **Sequential Creation**: When building a nested path (e.g., `src/features/auth`), create the directories first, then create the files inside them. 
+    3. **Completely Empty Files**: Do not attempt to write code, content, boilerplate, or comments into the files. The `make_file` only accepts a `file_path` parameter and generates completely blank files.
+    4. **No Visual Explanations**: Do not explain your steps, do not provide markdown tree diagrams, and do not write conversational text. Simply analyze the request and execute the tool calls required to build the structure.
 
-### Project Overview
-- App Name: (suggest a name)
-- Framework: React with Vite
-- Styling: Tailwind CSS
-- Complexity: (Simple / Medium / Complex)
-
-### Pages
-List every page the app needs:
-- Page 1: (name and purpose)
-- Page 2: (name and purpose)
-
-### Components
-List all reusable components needed:
-- Component 1: (name and purpose)
-- Component 2: (name and purpose)
-
-### Routing Structure
-- / → (which page)
-- /route → (which page)
-
-### Dependencies
-List all npm packages needed beyond React:
-- package-name: (reason)
-
-### Folder Structure
-src/
-  pages/
-    (list page files)
-  components/
-    (list component files)
-  App.jsx
-  main.jsx
-
-### Hardcoded Data Notes
-List any data that will be hardcoded since there is no backend:
-- (data item and where it's used)
-
-Be specific, practical, and concise. No extra commentary outside this format.""",
+    ### WORKFLOW:
+    1. Identify all directories needed for the requested project architecture.
+    2. Call `make_directory` to create those folders.
+    3. Call `make_file` to populate those folders with the necessary blank files.
+    """,
+    tools = [make_directory, make_file]
 )
-
-# ── Main function ─────────────────────────────────────────────────────────────
-
-def run_planner(user_requirement: str) -> str:
-    """Takes user requirement, returns structured project plan."""
-    print("\nPlanner Agent thinking...\n")
-
-    result = agent.invoke({
-        "messages": [{"role": "user", "content": user_requirement}]
-    })
-
-    plan = result["messages"][-1].content
-
-    # Save plan to file so other agents can read it
-    with open("project_plan.md", "w", encoding="utf-8") as f:
-        f.write(plan)
-
-    print("Project plan saved to project_plan.md")
-    return plan
-
-
-# ── Run directly for testing ──────────────────────────────────────────────────
-
-if __name__ == "__main__":
-    requirement = input("Describe the React app you want to build: ")
-    plan = run_planner(requirement)
-    print("\n── Planner Output ──")
-    print(plan)
